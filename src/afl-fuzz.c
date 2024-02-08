@@ -401,6 +401,10 @@ static void usage(u8 *argv0, int more_help) {
   SAYF("Compiled with _AFL_DOCUMENT_MUTATIONS.\n");
 #endif
 
+#ifdef _AFL_SPECIAL_PERFORMANCE
+  SAYF("Compiled with special performance options for this specific system, it might not work on other platforms!\n");
+#endif
+
   SAYF("For additional help please consult %s/README.md :)\n\n", doc_path);
 
   exit(1);
@@ -1229,6 +1233,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         }
 
+        afl->old_seed_selection = 1;
         u64 limit_time_puppet2 = afl->limit_time_puppet * 60 * 1000;
 
         if ((s32)limit_time_puppet2 < afl->limit_time_puppet) {
@@ -2179,7 +2184,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
 
-    afl->fsrv.persistent_record_dir = alloc_printf("%s/crashes", afl->out_dir);
+    afl->fsrv.persistent_record_dir = alloc_printf("%s", afl->out_dir);
 
   }
 
