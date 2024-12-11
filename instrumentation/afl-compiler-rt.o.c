@@ -120,6 +120,10 @@ u64 __afl_map_addr;
 u32 __afl_first_final_loc;
 u32 __afl_old_forkserver;
 
+/* and how many times we should allow the persistent loop to run after forking, for now just once */
+u32 __afl_stateful_cnt = 1;
+
+
 #ifdef __AFL_CODE_COVERAGE
 typedef struct afl_module_info_t afl_module_info_t;
 
@@ -1112,6 +1116,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
   static u8  first_pass = 1;
   static u32 cycle_cnt;
+  u8 *stateful_arg;
 
 #ifdef AFL_PERSISTENT_RECORD
   char tcase[PATH_MAX];
@@ -1143,6 +1148,12 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     {
 
       cycle_cnt = max_cnt;
+
+      stateful_arg = getenv("AFL_STATEFUL_START");
+      if(stateful_arg && !cycle_cnt) {
+        /* setting max_cnt to 0 is lets afl manage the number of iterations */
+        cycle_cnt = atoi(stateful_arg) + __afl_stateful_cnt;
+      }
 
     }
 
@@ -1181,6 +1192,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
 #endif
 
+    if (cycle_cnt == __afl_stateful_cnt) {
+      __afl_start_forkserver();
+    }
     raise(SIGSTOP);
 
     __afl_area_ptr[0] = 1;
@@ -1228,6 +1242,15 @@ void __afl_manual_init(void) {
   }
 
   if (!init_done) {
+
+    if(getenv("AFL_STATEFUL_START")) {
+      /* Ugly but convenient hack, if we are in stateful fuzzing mode
+         we defer the initialization of the forkserver after processing a number of inputs
+         the forkserver will be initialized right before pulling in the stateful "start" input. 
+         This way we don't have to mess with the logic that sets the DEFER_ENV_VAR at least for now. */
+      init_done = 1;
+      return;
+    }
 
     __afl_start_forkserver();
     init_done = 1;
